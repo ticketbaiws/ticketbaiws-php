@@ -12,12 +12,25 @@ use TicketbaiWS\Exception\WebhookException;
  * X-TbaiWs-Environment indica el entorno (test o real).
  *
  *   $aviso = \TicketbaiWS\Webhook::recibir('mi-secret');   // lanza WebhookException si la firma no vale
+ *   $aviso['evento'];  // cambio_estado, spfe_envio, spfe_estado o spfe_recibida
  *   $aviso['datos'];   // cuerpo decodificado
  */
 final class Webhook
 {
     const CABECERA_FIRMA = 'X-Tbaiws-Hmac-Sha256';
     const CABECERA_ENTORNO = 'X-TbaiWs-Environment';
+    const CABECERA_EVENTO = 'X-TbaiWs-Topic';
+
+    /** Cambio de estado de una factura TicketBAI o Verifactu (serie, numero, fecha_emision, estado OK|ERROR, avisos). */
+    const EVENTO_CAMBIO_ESTADO = 'cambio_estado';
+    /** SPFE: resultado del envío de una factura emitida (serie, numero, nif_cliente, estado, errores, localizador). */
+    const EVENTO_SPFE_ENVIO = 'spfe_envio';
+    /** SPFE: resultado de un pago, cobro, rechazo o impago comunicado (campos de una fila de spfe()->estados()). */
+    const EVENTO_SPFE_ESTADO = 'spfe_estado';
+    /** SPFE: factura nueva recibida de un proveedor (campos de una fila de spfe()->recibidas()). */
+    const EVENTO_SPFE_RECIBIDA = 'spfe_recibida';
+
+    const EVENTOS = [self::EVENTO_CAMBIO_ESTADO, self::EVENTO_SPFE_ENVIO, self::EVENTO_SPFE_ESTADO, self::EVENTO_SPFE_RECIBIDA];
 
     private function __construct()
     {
@@ -40,11 +53,13 @@ final class Webhook
 
     /**
      * Lee el aviso de la petición actual (php://input y $_SERVER), verifica la
-     * firma y devuelve ['entorno' => 'test'|'real'|null, 'datos' => array].
+     * firma y devuelve ['evento' => ..., 'entorno' => 'test'|'real'|null, 'datos' => array].
+     * El evento sale de la cabecera X-TbaiWs-Topic o del campo "evento" del
+     * cuerpo; si no viene ninguno es cambio_estado.
      *
      * @param string|null          $cuerpo   Para tests o frameworks: cuerpo RAW
      * @param array<string,string>|null $cabeceras Para tests o frameworks: cabeceras (cualquier capitalización)
-     * @return array{entorno:?string, datos:array<string,mixed>}
+     * @return array{evento:string, entorno:?string, datos:array<string,mixed>}
      * @throws WebhookException
      */
     public static function recibir(string $secret, ?string $cuerpo = null, ?array $cabeceras = null): array
@@ -60,7 +75,11 @@ final class Webhook
         if (!is_array($datos)) {
             throw new WebhookException('El cuerpo del webhook no es JSON válido');
         }
-        return ['entorno' => self::cabecera(self::CABECERA_ENTORNO, $cabeceras), 'datos' => $datos];
+        $evento = self::cabecera(self::CABECERA_EVENTO, $cabeceras);
+        if ($evento === null || $evento === '') {
+            $evento = isset($datos['evento']) ? (string) $datos['evento'] : self::EVENTO_CAMBIO_ESTADO;
+        }
+        return ['evento' => $evento, 'entorno' => self::cabecera(self::CABECERA_ENTORNO, $cabeceras), 'datos' => $datos];
     }
 
     /** @param array<string,string>|null $cabeceras */

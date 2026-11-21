@@ -3,6 +3,7 @@
 namespace TicketbaiWS;
 
 use TicketbaiWS\Resource\LroeRegistro;
+use TicketbaiWS\Resource\Spfe;
 
 /**
  * Cliente de la API de Ticketbai WS con las credenciales de una EMPRESA
@@ -139,7 +140,8 @@ class Client extends AbstractApi
     }
 
     /**
-     * GET /facturae/ — XML FacturaE 3.2 en base64. Para FACe añade en $face:
+     * GET /facturae/ — XML FacturaE 3.2 en base64. Solo en producción (no existe en api-test).
+     * Para FACe añade en $face:
      * cod_organo_gestor, cod_unidad_tramitadora, cod_oficina_contable.
      *
      * @param array<string,string> $face
@@ -224,22 +226,45 @@ class Client extends AbstractApi
     }
 
     // -----------------------------------------------------------------
+    // Factura electrónica B2B (Ley Crea y Crece, SPFE de la AEAT)
+    // -----------------------------------------------------------------
+
+    /**
+     * SPFE: estados de pago, cobro, rechazo e impago y facturas recibidas.
+     * ->pago(), ->rechazo(), ->cobro(), ->impago(), ->comunicarEstado(),
+     * ->anularEstado(), ->estados(), ->recibidas(), ->recibidasDesde().
+     */
+    public function spfe(): Spfe
+    {
+        return new Spfe($this);
+    }
+
+    // -----------------------------------------------------------------
     // Webhooks (cada entorno tiene los suyos)
     // -----------------------------------------------------------------
 
-    /** POST /webhooks/ — avisa de los cambios de estado de las facturas. */
-    public function crearWebhook(string $url, string $secret, bool $soloErrores = false, bool $activo = true): Response
+    /**
+     * POST /webhooks/ — avisa de los cambios de estado de las facturas.
+     * $eventos: lista de Webhook::EVENTO_* (por defecto solo cambio_estado).
+     *
+     * @param string[]|null $eventos
+     */
+    public function crearWebhook(string $url, string $secret, bool $soloErrores = false, bool $activo = true, ?array $eventos = null): Response
     {
-        return $this->peticion('POST', 'webhooks', [
+        $datos = [
             'url' => $url,
             'secret' => $secret,
             'solo_errores' => $soloErrores,
             'activo' => $activo,
-        ]);
+        ];
+        if ($eventos !== null) {
+            $datos['eventos'] = array_values($eventos);
+        }
+        return $this->peticion('POST', 'webhooks', $datos);
     }
 
     /**
-     * PUT /webhooks/{codigo}/ — $cambios: url, secret, solo_errores, activo.
+     * PUT /webhooks/{codigo}/ — $cambios: url, secret, solo_errores, activo, eventos.
      *
      * @param array<string,mixed> $cambios
      */

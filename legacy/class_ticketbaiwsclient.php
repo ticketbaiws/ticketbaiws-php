@@ -16,6 +16,14 @@
  *   if($tbai->get_last_result()!=="ERROR"){ ... } else { $errores = $r; }
  *
  * -------------------------------------------------------------------------
+ * Cambios v3 (openapi.json 1.0.5):
+ *  - Factura electrónica B2B (SPFE): spfe_estados_alta(), spfe_estados_consulta()
+ *    y spfe_recibidas_consulta().
+ *  - webhooks_alta()/webhooks_modificar() admiten "eventos" (cambio_estado,
+ *    spfe_envio, spfe_estado, spfe_recibida); empresas_alta()/empresas_editar()
+ *    admiten "spfe" (bool).
+ *  - FacturaE (facturae()) solo existe en producción.
+ *
  * Cambios v2 (revisión contra openapi.json 1.0.3):
  *  - Nuevos métodos LROE 2.2 "gastos sin factura" (modelo 140, Bizkaia):
  *    lroe_gastos_sinfactura_alta/modificar/consulta/anular.
@@ -222,7 +230,7 @@ class class_ticketbaiwsclient{
 	}
 
 	/**
-	 * GET /facturae/ — $info_factura: serie, numero, y opcionalmente
+	 * GET /facturae/ (solo producción) — $info_factura: serie, numero, y opcionalmente
 	 * cod_organo_gestor, cod_unidad_tramitadora, cod_oficina_contable (FACe).
 	 * Devuelve el XML FacturaE v3.2 en base64.
 	 */
@@ -357,7 +365,7 @@ class class_ticketbaiwsclient{
 	// Webhooks (independientes en pruebas y producción)
 	// -----------------------------------------------------------------
 
-	/** POST /webhooks/ — $datos: url (req), secret (req), solo_errores, activo. */
+	/** POST /webhooks/ — $datos: url (req), secret (req), solo_errores, activo, eventos (array). */
 	function webhooks_alta($datos){
 		return $this->procesarRespuesta($this->callService("webhooks","POST",$datos));
 	}
@@ -384,6 +392,35 @@ class class_ticketbaiwsclient{
 	static function webhooks_verificar_firma($cuerpo_peticion, $secret, $firma_recibida){
 		$firma_calculada = base64_encode(hash_hmac('sha256', $cuerpo_peticion, $secret, true));
 		return hash_equals($firma_calculada, (string)$firma_recibida);
+	}
+
+	// -----------------------------------------------------------------
+	// Factura electrónica B2B (Ley Crea y Crece, SPFE de la AEAT)
+	// Solo para empresas con la SPFE activada.
+	// -----------------------------------------------------------------
+
+	/**
+	 * POST /spfe-estados/ — comunica pago, cobro, rechazo o impago.
+	 * $datos: estado (cobro|impago|pago|rechazo), serie+numero (emitidas) o
+	 * factura+fecha_factura+nif_emisor+nombre_emisor (recibidas), fecha,
+	 * vencimiento, motivo_rechazo, baja, sincrono...
+	 */
+	function spfe_estados_alta($datos){
+		return $this->procesarRespuesta($this->callService("spfe-estados","POST",$datos));
+	}
+
+	/** GET /spfe-estados/ — $datos opcional: id, serie, numero, factura, nif_emisor. */
+	function spfe_estados_consulta($datos=[]){
+		return $this->procesarRespuesta($this->callService("spfe-estados","GET",$datos));
+	}
+
+	/**
+	 * GET /spfe-recibidas/ — facturas recibidas de proveedores. $datos opcional:
+	 * desde_id, id, estado (pendiente|pagada|rechazada), nif_emisor, factura,
+	 * desde, hasta, limite, ubl.
+	 */
+	function spfe_recibidas_consulta($datos=[]){
+		return $this->procesarRespuesta($this->callService("spfe-recibidas","GET",$datos));
 	}
 
 	// -----------------------------------------------------------------

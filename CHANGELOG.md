@@ -2,6 +2,19 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.1.0] - 2026-11-22
+
+Cubre la especificación `openapi.json` 1.0.5.
+
+### Añadido
+- Factura electrónica B2B (Ley Crea y Crece, SPFE de la AEAT): `$client->spfe()` con `pago()`, `rechazo()`, `cobro()`, `impago()`, `comunicarEstado()`, `anularEstado()`, `estados()`, `recibidas()` y `recibidasDesde()`.
+- `Cuenta::activarSpfe($nif, $activar = true)` y parámetro `spfe` en `crearEmpresa()` / `editarEmpresa()`.
+- Eventos de webhook: `crearWebhook(..., $eventos)` y constantes `Webhook::EVENTO_*` (`cambio_estado`, `spfe_envio`, `spfe_estado`, `spfe_recibida`). `Webhook::recibir()` devuelve también `evento`.
+- Clase de un solo fichero: `spfe_estados_alta()`, `spfe_estados_consulta()` y `spfe_recibidas_consulta()`.
+
+### Cambiado
+- Documentado que `facturae()` solo existe en producción.
+
 ## [1.0.0] - 2026-11-21
 
 Primera versión publicada en Packagist. Cubre la especificación `openapi.json` 1.0.3.

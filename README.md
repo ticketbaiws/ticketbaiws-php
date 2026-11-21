@@ -10,6 +10,7 @@ Librería PHP oficial de la [API de Ticketbai WS](https://ticketbaiws.eus/es/doc
 Ticketbai WS genera y firma el XML, lo encadena, lo envía a Hacienda y te devuelve la huella, la URL de cotejo y el código QR. Tú solo envías los datos de la factura en JSON; esta librería se encarga del resto: autenticación, reintentos, errores y respuestas.
 
 - Un único cliente para **TicketBAI y Verifactu**: el sistema lo decide la configuración de la empresa.
+- **Factura electrónica B2B** (Ley Crea y Crece, SPFE de la AEAT): pagos, cobros, rechazos e impagos y facturas recibidas.
 - **LROE de Batuz** (Bizkaia): facturas recibidas, gastos sin factura y criterio de caja.
 - **Webhooks** con verificación de firma HMAC.
 - Gestión de **empresas y licencias** para integradores.
@@ -24,6 +25,7 @@ Ticketbai WS genera y firma el XML, lo encadena, lo envía a Hacienda y te devue
 - [Respuestas y errores](#respuestas-y-errores)
 - [Facturas](#facturas)
 - [Documento de representación](#documento-de-representación)
+- [Factura electrónica B2B (SPFE)](#factura-electrónica-b2b-spfe)
 - [LROE de Batuz (Bizkaia)](#lroe-de-batuz-bizkaia)
 - [Webhooks](#webhooks)
 - [Empresas y licencias (integradores)](#empresas-y-licencias-integradores)
@@ -131,7 +133,7 @@ try {
 | `completarFactura(array $datos)` | `POST /tbai-completar/` (completa a partir de simplificadas) |
 | `xmlFactura($serie, $numero)` | `GET /tbai-xml/` |
 | `pdfFactura($serie, $numero)` | `GET /tbai-pdf/` (PDF en base64) |
-| `facturae($serie, $numero, array $face = [])` | `GET /facturae/` (FacturaE 3.2 en base64; códigos DIR3 para FACe) |
+| `facturae($serie, $numero, array $face = [])` | `GET /facturae/` (FacturaE 3.2 en base64; códigos DIR3 para FACe). **Solo producción** |
 | `reenviarFactura($serie, $numero)` | `PUT /reset-tbai/` |
 | `estado()` / `estaOperativo()` | `GET /status/` |
 | `validarNif($nif, $nombre = null)` | `POST /validar-nif/` (censo AEAT) |
@@ -199,6 +201,52 @@ $tbai->descargarDocRepresentante();
 $tbai->revocarDocRepresentante();   // solo antes del primer envío en real
 ```
 
+## Factura electrónica B2B (SPFE)
+
+La Ley 18/2022 «Crea y Crece» (RD 238/2026 y Orden HAC/1028/2026) obliga a expedir las facturas entre empresas y profesionales en formato electrónico y a informar de su estado: **pago, cobro, rechazo o impago**. Ticketbai WS envía automáticamente a la **SPFE de la AEAT**, en UBL, las facturas completas a clientes españoles con NIF que emites con `crearFactura()`, y descarga cada hora las facturas que recibes de tus proveedores. No tienes que generar el UBL ni hablar con la AEAT.
+
+Se activa por empresa, en el área privada (*Factura electrónica B2B*) o por API: `$cuenta->activarSpfe($nif)` o `'spfe' => true` en `crearEmpresa()`. Al activarla se envían las facturas desde ese día.
+
+```php
+use TicketbaiWS\Resource\Spfe;
+
+$spfe = $tbai->spfe();
+
+// 1. Facturas recibidas nuevas desde la última sincronización
+$r = $spfe->recibidasDesde($ultimoId);
+foreach ($r->getData() as $recibida) {
+    // id, factura, fecha_factura, nif_emisor, nombre_emisor, base, cuota, total, vencimiento, estado...
+    $ultimoId = $recibida['id'];
+}
+if ($r->getMessageText() !== '') {
+    // Aviso: falta autorizar la consulta de recibidas (certificado de la empresa o apoderamiento)
+}
+
+// 2. Pago o rechazo de una recibida (se le pasa la fila tal cual)
+$spfe->pago($recibida, '10/11/2026', $recibida['vencimiento']);
+$spfe->rechazo($recibida, Spfe::RECHAZO_COMERCIAL);
+
+// 3. Cobro o impago de una factura que has emitido
+$spfe->cobro('A', '2026000245', '10/11/2026');
+$spfe->impago('A', '2026000245', '03/12/2026');
+
+// Resultado: PENDING (en cola), OK o ERROR. Con 'sincrono' => true se espera a la AEAT
+$spfe->estados(['serie' => 'A']);
+$spfe->anularEstado(['estado' => 'cobro', 'serie' => 'A', 'numero' => '2026000245']);
+```
+
+| Método de `spfe()` | API |
+|---|---|
+| `pago($recibida, $fecha, $vencimiento, $opciones = [])` | `POST /spfe-estados/` con `estado: pago` |
+| `rechazo($recibida, $motivo = '01', $opciones = [])` | `POST /spfe-estados/` con `estado: rechazo` |
+| `cobro($serie, $numero, $fecha = null, $opciones = [])` | `POST /spfe-estados/` con `estado: cobro` |
+| `impago($serie, $numero, $vencimiento, $opciones = [])` | `POST /spfe-estados/` con `estado: impago` |
+| `comunicarEstado(array $datos)` / `anularEstado(array $datos)` | `POST /spfe-estados/` (con `baja: true` para anular) |
+| `estados(array $filtros = [])` | `GET /spfe-estados/` |
+| `recibidas(array $filtros = [])` / `recibidasDesde($id, $limite = 100, $conUbl = false)` | `GET /spfe-recibidas/` |
+
+Para enterarte sin consultar, suscribe un webhook a los eventos `spfe_envio`, `spfe_estado` y `spfe_recibida` (ver [Webhooks](#webhooks)).
+
 ## LROE de Batuz (Bizkaia)
 
 Cada libro tiene `alta()`, `modificar()`, `consultar()` y `anular()`:
@@ -227,8 +275,17 @@ $compras = $tbai->lroeRecibidas()->consultar(['ejercicio' => 2026, 'nif' => 'B01
 
 Recibe un aviso cada vez que cambia el estado de una factura (por ejemplo, de PENDING a OK o ERROR). Cada entorno (pruebas y producción) tiene sus propios webhooks.
 
+| Evento (`Webhook::EVENTO_*`) | Cuándo |
+|---|---|
+| `cambio_estado` (por defecto) | Una factura TicketBAI o Verifactu pasa a OK o ERROR |
+| `spfe_envio` | Resultado del envío de una factura a la SPFE |
+| `spfe_estado` | Resultado de un pago, cobro, rechazo o impago comunicado |
+| `spfe_recibida` | Factura nueva recibida de un proveedor (se avisa aunque el webhook sea `solo_errores`) |
+
 ```php
-$w = $tbai->crearWebhook('https://tu-web.com/tbaiws-aviso.php', 'un-secret-largo', $soloErrores = false);
+use TicketbaiWS\Webhook;
+
+$w = $tbai->crearWebhook('https://tu-web.com/tbaiws-aviso.php', 'un-secret-largo', $soloErrores = false, true, Webhook::EVENTOS);
 $codigo = $w->getData('codigo');
 
 $tbai->modificarWebhook($codigo, ['activo' => false]);
@@ -247,11 +304,12 @@ try {
     http_response_code(401);
     exit;
 }
+$aviso['evento'];    // cambio_estado, spfe_envio, spfe_estado o spfe_recibida
 $aviso['entorno'];   // 'test' o 'real' (cabecera X-TbaiWs-Environment)
 $aviso['datos'];     // cuerpo del aviso decodificado
 ```
 
-Si usas un framework, pásale el cuerpo RAW y las cabeceras: `Webhook::recibir($secret, $request->getContent(), $request->headers->all())`.
+El cuerpo de cada evento está descrito en la sección `webhooks` del [openapi.json](https://api.ticketbaiws.eus/openapi.json). Si usas un framework, pásale el cuerpo RAW y las cabeceras: `Webhook::recibir($secret, $request->getContent(), $request->headers->all())`.
 
 ## Empresas y licencias (integradores)
 
@@ -271,6 +329,7 @@ $r = $cuenta->crearEmpresa([
 // $r->getData() incluye los tokens de pruebas y de producción de la empresa
 
 $cuenta->editarEmpresa('B89670855', ['email' => 'facturas@micliente.com']);
+$cuenta->activarSpfe('B89670855');   // factura electrónica B2B (Ley Crea y Crece)
 $cuenta->listarEmpresas();
 $cuenta->crearLicencia($plan, $cantidad = 1, $meses = 12, 'anual');
 $cuenta->listarLicencias();
@@ -312,6 +371,8 @@ La clase antigua sigue incluida (`legacy/class_ticketbaiwsclient.php`) y se carg
 | `tbai_pdf($f)` / `xml_tbai($f)` | `pdfFactura()` / `xmlFactura()` |
 | `reset_tbai($f)` | `reenviarFactura()` |
 | `lroe_recibidas_alta($d)` | `lroeRecibidas()->alta($d)` |
+| `spfe_estados_alta($d)` | `spfe()->comunicarEstado($d)` (o `pago()`, `cobro()`...) |
+| `spfe_recibidas_consulta($d)` | `spfe()->recibidas($d)` |
 | `webhooks_alta($d)` | `crearWebhook($url, $secret, ...)` |
 | `webhooks_verificar_firma(...)` | `Webhook::verificarFirma(...)` |
 | `empresas_alta($d)` | `(new Cuenta(...))->crearEmpresa($d)` |

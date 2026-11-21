@@ -23,7 +23,8 @@ class Cuenta extends AbstractApi
     /**
      * POST /empresas/ — obligatorios: nombre_social, nif, direccion, poblacion,
      * provincia, cp, diputacion (ver Diputacion::*). Opcionales: id_licencia,
-     * nombre_comercial, email, web, epigrafe (autónomos, CB y SC de Bizkaia).
+     * nombre_comercial, email, web, epigrafe (autónomos, CB y SC de Bizkaia),
+     * spfe (bool: envío de facturas B2B a la SPFE, Ley Crea y Crece).
      *
      * @param array<string,mixed> $empresa
      */
@@ -52,6 +53,15 @@ class Cuenta extends AbstractApi
     public function listarEmpresas(array $filtros = []): Response
     {
         return $this->peticion('GET', 'empresas', $filtros);
+    }
+
+    /**
+     * Activa o desactiva el envío a la SPFE (factura electrónica B2B, Ley Crea y
+     * Crece). Al activarlo se envían las facturas desde ese día.
+     */
+    public function activarSpfe(string $nif, bool $activar = true): Response
+    {
+        return $this->editarEmpresa($nif, ['spfe' => $activar]);
     }
 
     /** POST /licencias/ — $modalidad: "mensual" o "anual". */
