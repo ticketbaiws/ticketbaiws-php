@@ -1,0 +1,44 @@
+{
+    "name": "ticketbaiws/ticketbaiws-php",
+    "description": "Cliente PHP oficial de la API de Ticketbai WS: facturas TicketBAI (Araba, Bizkaia/Batuz, Gipuzkoa), Verifactu (AEAT) y LROE de Bizkaia.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": ["ticketbai", "verifactu", "batuz", "lroe", "tbai", "aeat", "factura electronica", "facturacion", "hacienda", "api", "sdk", "php"],
+    "homepage": "https://ticketbaiws.eus/es/desarrolladores/",
+    "support": {
+        "docs": "https://ticketbaiws.eus/es/documentacion-api/",
+        "issues": "https://github.com/ticketbaiws/ticketbaiws-php/issues",
+        "source": "https://github.com/ticketbaiws/ticketbaiws-php"
+    },
+    "authors": [
+        {
+            "name": "Berein Internet S.L.",
+            "homepage": "https://ticketbaiws.eus"
+        }
+    ],
+    "require": {
+        "php": ">=7.2",
+        "ext-curl": "*",
+        "ext-json": "*"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^8.5 || ^9.6"
+    },
+    "autoload": {
+        "psr-4": {
+            "TicketbaiWS\\": "src/"
+        },
+        "classmap": ["legacy/"]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "TicketbaiWS\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit"
+    },
+    "config": {
+        "sort-packages": true
+    }
+}
