@@ -2,6 +2,15 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.2.0] - 2026-11-22
+
+Cubre la especificación `openapi.json` 1.0.6.
+
+### Añadido
+- Clientes y productos de la herramienta de facturación: `$client->clientes()` (`buscar()`, `porNif()`, `obtener()`, `crear()`, `modificar()`) y `$client->productos()` (`buscar()`, `obtener()`), más `Productos::linea()` para convertir un producto en una línea de factura.
+- `Response::getCount()`: total de resultados de los listados paginados.
+- Clase de un solo fichero: `clientes_consulta()`, `cliente_consulta()`, `cliente_alta()`, `cliente_modificar()`, `productos_consulta()` y `producto_consulta()`.
+
 ## [1.1.0] - 2026-11-22
 
 Cubre la especificación `openapi.json` 1.0.5.

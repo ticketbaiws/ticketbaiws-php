@@ -10,6 +10,7 @@ Librería PHP oficial de la [API de Ticketbai WS](https://ticketbaiws.eus/es/doc
 Ticketbai WS genera y firma el XML, lo encadena, lo envía a Hacienda y te devuelve la huella, la URL de cotejo y el código QR. Tú solo envías los datos de la factura en JSON; esta librería se encarga del resto: autenticación, reintentos, errores y respuestas.
 
 - Un único cliente para **TicketBAI y Verifactu**: el sistema lo decide la configuración de la empresa.
+- **Clientes y productos** de la herramienta de facturación del área privada.
 - **Factura electrónica B2B** (Ley Crea y Crece, SPFE de la AEAT): pagos, cobros, rechazos e impagos y facturas recibidas.
 - **LROE de Batuz** (Bizkaia): facturas recibidas, gastos sin factura y criterio de caja.
 - **Webhooks** con verificación de firma HMAC.
@@ -25,6 +26,7 @@ Ticketbai WS genera y firma el XML, lo encadena, lo envía a Hacienda y te devue
 - [Respuestas y errores](#respuestas-y-errores)
 - [Facturas](#facturas)
 - [Documento de representación](#documento-de-representación)
+- [Clientes y productos](#clientes-y-productos)
 - [Factura electrónica B2B (SPFE)](#factura-electrónica-b2b-spfe)
 - [LROE de Batuz (Bizkaia)](#lroe-de-batuz-bizkaia)
 - [Webhooks](#webhooks)
@@ -95,6 +97,7 @@ Todos los métodos devuelven un `TicketbaiWS\Response` con el sobre `{ result, r
 | `getData($campo = null, $porDefecto = null)` | el contenido de `return`, o uno de sus campos |
 | `getMessage()` | `msg` tal cual: `null`, texto, XML de Hacienda o lista |
 | `getMessages()` / `getMessageText($sep)` | `msg` normalizado a lista de textos o a un único texto |
+| `getCount()` | total de resultados en los listados paginados |
 | `getHttpStatus()`, `getRawBody()` | para depurar |
 
 `Response` también se puede usar como array (`$r['result']`, `$r['return']`, `$r['msg']`) y se serializa con `json_encode()`.
@@ -200,6 +203,36 @@ $tbai->enviarDocRepresentante('representacion-firmado.pdf');
 $tbai->descargarDocRepresentante();
 $tbai->revocarDocRepresentante();   // solo antes del primer envío en real
 ```
+
+## Clientes y productos
+
+Los clientes y productos que la empresa tiene en la herramienta de facturación del área privada, para emitir facturas con sus datos. **No dependen del entorno:** con el token de pruebas se consultan y modifican los mismos datos que con el de producción.
+
+```php
+use TicketbaiWS\Resource\Productos;
+
+$cliente  = $tbai->clientes()->buscar('Uribe')->getData()[0];
+$producto = $tbai->productos()->buscar('mantenimiento')->getData()[0];
+
+$tbai->crearFactura([
+    // ...fecha, hora, serie, numero...
+    'nif'       => $cliente['nif'],
+    'nombre'    => $cliente['nombre'],
+    'direccion' => $cliente['direccion'],
+    'cp'        => $cliente['cp'],
+    'lineas'    => [Productos::linea($producto, 3)],   // 3 unidades
+    // ...
+]);
+```
+
+| Método | API |
+|---|---|
+| `clientes()->buscar($texto = '', $pagina = 0, $cantidad = 50)` | `GET /clientes/` (`getCount()` da el total) |
+| `clientes()->porNif($nif)` / `clientes()->obtener($id)` | `GET /clientes/` / `GET /clientes/{id}/` |
+| `clientes()->crear(array $cliente)` / `clientes()->modificar($id, array $cambios)` | `POST /clientes/` / `PUT /clientes/{id}/` |
+| `productos()->buscar($texto = '', array $filtros = [], $pagina = 0, $cantidad = 50)` | `GET /productos/` |
+| `productos()->obtener($codigo)` | `GET /productos/{codigo}/` |
+| `Productos::linea($producto, $cantidad = 1, $descuento = null)` | Línea lista para `crearFactura()` |
 
 ## Factura electrónica B2B (SPFE)
 

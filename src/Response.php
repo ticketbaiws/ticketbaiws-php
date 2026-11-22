@@ -145,6 +145,16 @@ final class Response implements \ArrayAccess, \JsonSerializable
         return implode($separator, $this->getMessages());
     }
 
+    /**
+     * Total de resultados de los listados paginados (campo «count» de
+     * listarFacturas(), clientes()->buscar(), productos()->buscar()...). null si no viene.
+     */
+    public function getCount(): ?int
+    {
+        $json = json_decode($this->rawBody, true);
+        return (is_array($json) && isset($json['count']) && is_numeric($json['count'])) ? (int) $json['count'] : null;
+    }
+
     public function getHttpStatus(): int
     {
         return $this->httpStatus;

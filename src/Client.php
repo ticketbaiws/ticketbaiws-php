@@ -2,7 +2,9 @@
 
 namespace TicketbaiWS;
 
+use TicketbaiWS\Resource\Clientes;
 use TicketbaiWS\Resource\LroeRegistro;
+use TicketbaiWS\Resource\Productos;
 use TicketbaiWS\Resource\Spfe;
 
 /**
@@ -223,6 +225,22 @@ class Client extends AbstractApi
     public function lroeCriterioCajaPagos(): LroeRegistro
     {
         return new LroeRegistro($this, 'lroe-critcaja-pagos');
+    }
+
+    // -----------------------------------------------------------------
+    // Clientes y productos de la herramienta de facturación
+    // -----------------------------------------------------------------
+
+    /** Clientes del área privada: ->buscar(), ->porNif(), ->obtener(), ->crear(), ->modificar(). */
+    public function clientes(): Clientes
+    {
+        return new Clientes($this);
+    }
+
+    /** Productos del área privada (solo consulta): ->buscar(), ->obtener(), Productos::linea(). */
+    public function productos(): Productos
+    {
+        return new Productos($this);
     }
 
     // -----------------------------------------------------------------

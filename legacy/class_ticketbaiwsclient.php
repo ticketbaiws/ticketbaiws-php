@@ -16,6 +16,11 @@
  *   if($tbai->get_last_result()!=="ERROR"){ ... } else { $errores = $r; }
  *
  * -------------------------------------------------------------------------
+ * Cambios v4 (openapi.json 1.0.6):
+ *  - Clientes y productos de la herramienta de facturación: clientes_consulta(),
+ *    cliente_consulta(), cliente_alta(), cliente_modificar(), productos_consulta()
+ *    y producto_consulta().
+ *
  * Cambios v3 (openapi.json 1.0.5):
  *  - Factura electrónica B2B (SPFE): spfe_estados_alta(), spfe_estados_consulta()
  *    y spfe_recibidas_consulta().
@@ -392,6 +397,41 @@ class class_ticketbaiwsclient{
 	static function webhooks_verificar_firma($cuerpo_peticion, $secret, $firma_recibida){
 		$firma_calculada = base64_encode(hash_hmac('sha256', $cuerpo_peticion, $secret, true));
 		return hash_equals($firma_calculada, (string)$firma_recibida);
+	}
+
+	// -----------------------------------------------------------------
+	// Clientes y productos de la herramienta de facturación
+	// (no dependen del entorno: test y real comparten los mismos datos)
+	// -----------------------------------------------------------------
+
+	/** GET /clientes/ — $datos: buscar, nif, pagina, cantidad. */
+	function clientes_consulta($datos=[]){
+		return $this->procesarRespuesta($this->callService("clientes","GET",$datos));
+	}
+
+	/** GET /clientes/{id}/ */
+	function cliente_consulta($id){
+		return $this->procesarRespuesta($this->callService("clientes/".intval($id),"GET"));
+	}
+
+	/** POST /clientes/ — nombre (req), nombre_comercial, nif, tipo_documento, direccion, cp, poblacion, provincia, pais, email, telefono, web. */
+	function cliente_alta($datos){
+		return $this->procesarRespuesta($this->callService("clientes","POST",$datos));
+	}
+
+	/** PUT /clientes/{id}/ — solo cambian los campos enviados. */
+	function cliente_modificar($id, $datos){
+		return $this->procesarRespuesta($this->callService("clientes/".intval($id),"PUT",$datos));
+	}
+
+	/** GET /productos/ — $datos: buscar, referencia, familia, pagina, cantidad. */
+	function productos_consulta($datos=[]){
+		return $this->procesarRespuesta($this->callService("productos","GET",$datos));
+	}
+
+	/** GET /productos/{codigo}/ */
+	function producto_consulta($codigo){
+		return $this->procesarRespuesta($this->callService("productos/".rawurlencode($codigo),"GET"));
 	}
 
 	// -----------------------------------------------------------------
